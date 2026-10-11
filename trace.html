@@ -1,0 +1,486 @@
+```html
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Track Centreline Tracer</title>
+
+<style>
+  :root {
+    --bg: #f4f3ef;
+    --ink: #2a2a2a;
+    --accent: #b5522b;
+    --muted: #777;
+    --line: #d0cec7;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font: 12px ui-monospace, Consolas, monospace;
+    background: var(--bg);
+    color: var(--ink);
+  }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--ink);
+  }
+
+  button, select, input {
+    font: inherit;
+    color: inherit;
+  }
+
+  button, select {
+    background: transparent;
+    border: 1px solid var(--ink);
+    padding: 5px 8px;
+    cursor: pointer;
+  }
+
+  button:hover { background: #e5e2da; }
+
+  input[type="number"] {
+    width: 55px;
+    padding: 4px;
+    background: transparent;
+    border: 1px solid var(--line);
+  }
+
+  input[type="checkbox"] { accent-color: var(--accent); }
+
+  .control {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .status strong { color: var(--accent); }
+
+  .workspace {
+    overflow: auto;
+    max-height: calc(100vh - 115px);
+    padding: 20px;
+  }
+
+  .canvas-wrap {
+    position: relative;
+    width: max-content;
+    min-width: 100%;
+  }
+
+  canvas {
+    display: block;
+    cursor: crosshair;
+    max-width: none;
+  }
+
+  .help {
+    color: var(--muted);
+    padding: 8px 14px;
+    border-top: 1px solid var(--line);
+    line-height: 1.7;
+  }
+
+  #output {
+    display: none;
+    width: 100%;
+    height: 110px;
+    padding: 10px;
+    margin-top: 8px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    font: inherit;
+  }
+</style>
+</head>
+
+<body>
+<header>
+  <input type="file" id="file" accept="image/*">
+
+  <button id="undo" type="button">Undo</button>
+  <button id="clear" type="button">Clear</button>
+  <button id="copy" type="button">Copy points</button>
+  <button id="close" type="button">Close loop</button>
+
+  <label class="control">
+    Snap
+    <select id="snap">
+      <option value="none">Off</option>
+      <option value="axis" selected>Horizontal / vertical</option>
+      <option value="grid">Grid</option>
+    </select>
+  </label>
+
+  <label class="control">
+    Tolerance
+    <input id="tolerance" type="number" min="1" max="100" value="12">
+    px
+  </label>
+
+  <label class="control">
+    Grid
+    <input id="grid" type="number" min="2" max="100" value="10">
+    px
+  </label>
+
+  <label class="control">
+    <input id="showGrid" type="checkbox">
+    Show grid
+  </label>
+
+  <label class="control">
+    <input id="showCoords" type="checkbox" checked>
+    Labels
+  </label>
+</header>
+
+<div class="status">
+  <span>IMAGE <strong id="dimensions">No image</strong></span>
+  <span>POINTS <strong id="count">0</strong></span>
+  <span>CURSOR <strong id="cursor">—</strong></span>
+  <span>SEGMENT <strong id="segment">—</strong></span>
+  <span>TOTAL LENGTH <strong id="length">—</strong></span>
+</div>
+
+<div class="workspace">
+  <div class="canvas-wrap">
+    <canvas id="cv"></canvas>
+  </div>
+</div>
+
+<div class="help">
+  Click to add points in driving direction. Hold Shift to temporarily disable snapping.
+  <br>
+  Horizontal/vertical snapping aligns to the previous point when within tolerance.
+  Grid mode snaps coordinates to the nearest grid intersection.
+  <br>
+  Undo: Ctrl+Z · Close loop: connect last point to first · Copy points: JSON array for track.js.
+</div>
+
+<textarea id="output" readonly></textarea>
+
+<script>
+(() => {
+  'use strict';
+
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+
+  const $ = id => document.getElementById(id);
+
+  let img = null;
+  let pts = [];
+  let closed = false;
+  let mouse = null;
+  let preview = null;
+  let shiftDown = false;
+
+  const fmt = n => Number(n.toFixed(1));
+
+  function getSnapPoint(x, y, disable = false) {
+    if (disable || !pts.length) return [Math.round(x), Math.round(y)];
+
+    const mode = $('snap').value;
+    const tolerance = Math.max(1, Number($('tolerance').value) || 12);
+    const grid = Math.max(2, Number($('grid').value) || 10);
+
+    if (mode === 'grid') {
+      return [
+        Math.round(x / grid) * grid,
+        Math.round(y / grid) * grid
+      ];
+    }
+
+    if (mode === 'axis') {
+      const [px, py] = pts[pts.length - 1];
+      const dx = Math.abs(x - px);
+      const dy = Math.abs(y - py);
+
+      if (dx <= tolerance && dx <= dy) {
+        x = px;
+      } else if (dy <= tolerance) {
+        y = py;
+      }
+    }
+
+    return [Math.round(x), Math.round(y)];
+  }
+
+  function getLength(points, loop = false) {
+    let total = 0;
+
+    for (let i = 1; i < points.length; i++) {
+      total += Math.hypot(
+        points[i][0] - points[i - 1][0],
+        points[i][1] - points[i - 1][1]
+      );
+    }
+
+    if (loop && points.length > 2) {
+      total += Math.hypot(
+        points[0][0] - points[points.length - 1][0],
+        points[0][1] - points[points.length - 1][1]
+      );
+    }
+
+    return total;
+  }
+
+  function drawGrid() {
+    if (!$('showGrid').checked) return;
+
+    const step = Math.max(2, Number($('grid').value) || 10);
+    ctx.beginPath();
+    ctx.strokeStyle = '#dedbd3';
+    ctx.lineWidth = 0.5;
+
+    for (let x = 0; x <= cv.width; x += step) {
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, cv.height);
+    }
+
+    for (let y = 0; y <= cv.height; y += step) {
+      ctx.moveTo(0, y);
+      ctx.lineTo(cv.width, y);
+    }
+
+    ctx.stroke();
+  }
+
+  function drawSegment(a, b, color, width = 2, dash = []) {
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.setLineDash(dash);
+    ctx.moveTo(a[0], a[1]);
+    ctx.lineTo(b[0], b[1]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  function draw() {
+    if (!img) return;
+
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.drawImage(img, 0, 0);
+    drawGrid();
+
+    // Existing centreline.
+    if (pts.length > 1) {
+      ctx.beginPath();
+      ctx.strokeStyle = '#b5522b';
+      ctx.lineWidth = 2;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+
+      pts.forEach(([x, y], i) => {
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+
+      if (closed) ctx.closePath();
+      ctx.stroke();
+    }
+
+    // Live snapped segment preview.
+    if (pts.length && preview && !closed) {
+      const last = pts[pts.length - 1];
+
+      drawSegment(last, preview, '#b5522b', 1.5, [5, 4]);
+
+      if (preview[0] === last[0] || preview[1] === last[1]) {
+        drawSegment(last, preview, '#b5522b', 3);
+      }
+
+      const distance = Math.hypot(
+        preview[0] - last[0],
+        preview[1] - last[1]
+      );
+
+      const angle = Math.atan2(
+        preview[1] - last[1],
+        preview[0] - last[0]
+      ) * 180 / Math.PI;
+
+      $('segment').textContent =
+        `${fmt(distance)} px / ${fmt(angle)}°`;
+    } else {
+      $('segment').textContent = '—';
+    }
+
+    // Numbered points.
+    pts.forEach(([x, y], i) => {
+      ctx.fillStyle = i === 0 ? '#2a2a2a' : '#b5522b';
+      ctx.beginPath();
+      ctx.arc(x, y, i === 0 ? 5 : 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      if ($('showCoords').checked) {
+        ctx.font = '11px monospace';
+        ctx.fillStyle = '#2a2a2a';
+        ctx.fillText(`${i}: ${x},${y}`, x + 7, y - 7);
+      }
+    });
+
+    // Live cursor position.
+    if (mouse) {
+      ctx.strokeStyle = '#2a2a2a';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(mouse[0] - 7, mouse[1]);
+      ctx.lineTo(mouse[0] + 7, mouse[1]);
+      ctx.moveTo(mouse[0], mouse[1] - 7);
+      ctx.lineTo(mouse[0], mouse[1] + 7);
+      ctx.stroke();
+    }
+
+    $('count').textContent = pts.length;
+    $('length').textContent =
+      `${fmt(getLength(pts, closed))} px${closed ? ' (closed)' : ''}`;
+  }
+
+  function canvasPosition(e) {
+    const r = cv.getBoundingClientRect();
+
+    // Account for CSS scaling if the canvas is resized.
+    return [
+      (e.clientX - r.left) * cv.width / r.width,
+      (e.clientY - r.top) * cv.height / r.height
+    ];
+  }
+
+  $('file').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const nextImage = new Image();
+
+    nextImage.onload = () => {
+      img = nextImage;
+      cv.width = img.naturalWidth;
+      cv.height = img.naturalHeight;
+
+      pts = [];
+      closed = false;
+      mouse = null;
+      preview = null;
+
+      $('dimensions').textContent = `${cv.width} × ${cv.height} px`;
+      $('output').style.display = 'none';
+
+      draw();
+    };
+
+    nextImage.src = URL.createObjectURL(file);
+  });
+
+  cv.addEventListener('mousemove', e => {
+    if (!img) return;
+
+    const [x, y] = canvasPosition(e);
+    mouse = [x, y];
+    preview = getSnapPoint(x, y, shiftDown);
+
+    $('cursor').textContent = `${fmt(x)}, ${fmt(y)}`;
+    draw();
+  });
+
+  cv.addEventListener('mouseleave', () => {
+    mouse = null;
+    preview = null;
+    $('cursor').textContent = '—';
+    draw();
+  });
+
+  cv.addEventListener('click', e => {
+    if (!img || closed) return;
+
+    const [x, y] = canvasPosition(e);
+    const point = getSnapPoint(x, y, e.shiftKey);
+
+    pts.push(point);
+    draw();
+  });
+
+  $('undo').addEventListener('click', () => {
+    if (closed) closed = false;
+    pts.pop();
+    draw();
+  });
+
+  $('clear').addEventListener('click', () => {
+    pts = [];
+    closed = false;
+    $('output').style.display = 'none';
+    draw();
+  });
+
+  $('close').addEventListener('click', () => {
+    if (pts.length < 3) return;
+    closed = !closed;
+    draw();
+  });
+
+  $('copy').addEventListener('click', async () => {
+    const text = JSON.stringify(pts);
+
+    try {
+      await navigator.clipboard.writeText(text);
+      $('count').textContent = `${pts.length} copied`;
+    } catch {
+      const output = $('output');
+      output.value = text;
+      output.style.display = 'block';
+      output.focus();
+      output.select();
+    }
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Shift') shiftDown = true;
+
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+      e.preventDefault();
+      $('undo').click();
+    }
+
+    if (e.key === 'Escape') {
+      preview = null;
+      draw();
+    }
+  });
+
+  document.addEventListener('keyup', e => {
+    if (e.key === 'Shift') shiftDown = false;
+  });
+
+  ['snap', 'tolerance', 'grid', 'showGrid', 'showCoords'].forEach(id => {
+    $(id).addEventListener('input', draw);
+    $(id).addEventListener('change', draw);
+  });
+})();
+</script>
+</body>
+</html>
+```

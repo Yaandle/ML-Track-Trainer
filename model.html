@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panorama Lab · Model</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="doc">
+<main>
+  <header>
+    <h1>Panorama Lab</h1>
+    <p class="meta">Model and training method · Prototype 03</p>
+    <p class="meta"><a href="index.html">← Circuit</a></p>
+  </header>
+
+  <section>
+    <h2><span>01</span> / Objective</h2>
+    <p>Complete one lap of Mount Panorama as fast as possible without touching the wall, using the same GT3 physics a human driver uses.</p>
+  </section>
+
+  <section>
+    <h2><span>02</span> / Technique</h2>
+    <h3>Neuroevolution</h3>
+    <p>A population of neural-network drivers is simulated at once. The highest-scoring networks are kept, recombined and randomly mutated to form the next generation. There are no gradients: the only learning signal is each driver's total episode reward.</p>
+    <ul>
+      <li><b>Why:</b> simple, dependency-free, runs in the browser on the manual-driving physics, and the simulator is deterministic so fitness comparisons are clean.</li>
+      <li><b>Limits:</b> sample-inefficient, scales poorly to large networks, and gives no credit assignment inside an episode.</li>
+      <li><b>Relation to RL:</b> same goal (maximise expected return) via direct policy search. A network is the policy; evolution is the training method; RL is the wider framework. Here, selection and mutation between generations replace the per-agent policy update.</li>
+      <li><b>Next:</b> port the environment to Python and compare against PPO on the same reward.</li>
+    </ul>
+    <figure>
+      <svg class="fig" viewBox="0 0 330 110" role="img" aria-label="Reinforcement learning loop">
+        <defs><marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z"/></marker></defs>
+        <rect x="10" y="14" width="100" height="32"/><text x="60" y="34" text-anchor="middle">AGENT</text>
+        <rect x="220" y="14" width="100" height="32"/><text x="270" y="34" text-anchor="middle">ENVIRONMENT</text>
+        <path class="ar" d="M110 24H220" marker-end="url(#ah)"/><text x="165" y="20" text-anchor="middle">action</text>
+        <path class="ar" d="M220 38H110" marker-end="url(#ah)"/><text x="165" y="50" text-anchor="middle">observation, reward</text>
+        <path class="ar" d="M40 46C40 84 80 84 80 46" marker-end="url(#ah)"/><text x="60" y="98" text-anchor="middle">update policy</text>
+      </svg>
+      <figcaption><b>Reinforcement learning</b> The agent acts, observes the result and reward, and updates its policy.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2><span>03</span> / Observations</h2>
+    <p>Track-relative geometry, sampled at 30 Hz. No camera or ray-casting.</p>
+    <table><thead><tr><th>Input</th><th>Meaning</th></tr></thead><tbody id="obs"></tbody></table>
+  </section>
+
+  <section>
+    <h2><span>04</span> / Network</h2>
+    <svg id="net" class="fig" viewBox="0 0 560 190" role="img" aria-label="Network architecture"></svg>
+    <p id="net-text"></p>
+    <p>Outputs: <b>pedal</b> (tanh; positive = throttle, negative = brake) and <b>steering</b> (tanh; positive = right). Both pass through the same control ramps as keyboard input.</p>
+  </section>
+
+  <section>
+    <h2><span>05</span> / Reward function</h2>
+    <p>Per step: <b>progress × Δdistance − time × Δt − grass × Δt</b> (grass applies only off the road). Terminal events add a one-off term.</p>
+    <table><thead><tr><th>Term</th><th>Value</th><th>Effect</th></tr></thead><tbody id="reward"></tbody></table>
+    <p class="muted">Illustrative returns, assuming no off-road time (computed from the values above):</p>
+    <table><tbody id="examples"></tbody></table>
+    <p><b>Episode ends</b> on lap completion, wall contact, stall (no progress), or time limit.</p>
+  </section>
+
+  <section>
+    <h2><span>06</span> / Evolution loop</h2>
+    <ul>
+      <li>Simulate every network in lockstep until all have ended.</li>
+      <li>Rank by total reward.</li>
+      <li>Keep the elites unchanged, add a few fresh random networks, and fill the rest with mutated (optionally crossed-over) children of the top share.</li>
+      <li>Shrink the mutation size each generation. Save the all-time best to local storage.</li>
+    </ul>
+    <table><thead><tr><th>Setting</th><th>Value</th></tr></thead><tbody id="cfg"></tbody></table>
+  </section>
+
+  <section>
+    <h2><span>07</span> / Known limits</h2>
+    <ul>
+      <li>Every episode starts from the same standing start, so early generations can overfit the opening sections. Random start positions are the next lever.</li>
+      <li>Walls end the episode, so the agent never learns recovery.</li>
+      <li>Flat 2D: no elevation, camber or tyre-temperature model.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span>08</span> / Build</h2>
+    <details open>
+      <summary>Stages</summary>
+      <ol class="stages">
+        <li><b>01 Circuit and menu</b> · done<br>Layout, centreline and road boundaries; panel and track window.</li>
+        <li><b>02 Vehicle physics</b> · done<br>Top-down car (position, heading, velocity); throttle, brake, steering; boundary detection and lap timing.</li>
+        <li><b>03 First autonomous agent</b> · done<br>Track-relative observations; neural-network policy; record completion, time, crashes, progress.</li>
+        <li class="now"><b>04 Training and analysis</b> · current<br>Neuroevolution trainer; plot reward, lap times and completion rate; visualise behaviour as it improves.</li>
+      </ol>
+    </details>
+    <details>
+      <summary>Stack</summary>
+      <table>
+        <thead><tr><th>Component</th><th>Technology</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td>Interface</td><td>HTML + CSS</td><td>Layout, type, panels</td></tr>
+          <tr><td>Circuit</td><td>SVG</td><td>2D geometry, zoom, overlays</td></tr>
+          <tr><td>Interaction</td><td>JavaScript</td><td>Menus, controls, live metrics</td></tr>
+          <tr><td>Vehicle physics</td><td>JavaScript</td><td>Steering, accel, braking, grip</td></tr>
+          <tr><td>ML training</td><td>JavaScript (Python planned)</td><td>Networks, training experiments</td></tr>
+          <tr><td>Later visuals</td><td>Godot / Blender</td><td>Real-time sim or 3D render</td></tr>
+        </tbody>
+      </table>
+      <p class="muted note">Interface and simulation logic stay separate so the JS prototype can later be swapped for a Python training environment or Godot simulator.</p>
+    </details>
+  </section>
+</main>
+
+<script src="track.js"></script>
+<script src="env.js"></script>
+<script src="brain.js"></script>
+<script>
+  const E = Env, B = Brain, $ = (id) => document.getElementById(id), n = Math.abs;
+  const rows = (id, data) => { $(id).innerHTML = data.map((r) => '<tr>' + r.map((c) => '<td>' + c + '</td>').join('') + '</tr>').join(''); };
+
+  // Observations
+  const desc = ['Speed ÷ 90 m/s', 'Signed distance from centreline ÷ wall distance (+ = right)', 'Car heading minus track direction ÷ 90°']
+    .concat(E.LOOK.map((d) => 'Track direction ' + d + ' m ahead, relative to car heading ÷ 90°'), ['Current steering position']);
+  rows('obs', E.OBS_NAMES.map((name, i) => [name, desc[i] || '']));
+
+  // Network
+  (function () {
+    const g = $('net'), NS = 'http://www.w3.org/2000/svg', L = B.LAYERS, last = L.length - 1;
+    const X = L.map((_, i) => 40 + (i * 480) / last), gap = Math.min(14, 140 / Math.max(...L));
+    const Y = (c, i) => 80 + (i - (c - 1) / 2) * gap;
+    const mk = (t, a, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); p.appendChild(e); return e; };
+    for (let l = 0; l < last; l++)
+      for (let i = 0; i < L[l]; i++) for (let j = 0; j < L[l + 1]; j++)
+        mk('line', { x1: X[l], y1: Y(L[l], i), x2: X[l + 1], y2: Y(L[l + 1], j) }, g);
+    L.forEach((c, l) => { for (let i = 0; i < c; i++) mk('circle', { cx: X[l], cy: Y(c, i), r: 3.5 }, g); });
+    L.forEach((c, l) => {
+      mk('text', { x: X[l], y: 176, 'text-anchor': 'middle' }, g).textContent =
+        (l === 0 ? 'input' : l === last ? 'output' : 'hidden') + ' (' + c + ')';
+    });
+    ['pedal', 'steer'].forEach((t, i) => { mk('text', { x: X[last] + 10, y: Y(L[last], i) + 3 }, g).textContent = t; });
+    $('net-text').textContent = L.join(' → ') + ' · tanh activations · ' + B.SIZE + ' weights.';
+  })();
+
+  // Reward
+  const R = E.REWARD;
+  rows('reward', [
+    ['progress', '+' + n(R.progress), 'per metre of forward progress along the centreline'],
+    ['time', '−' + n(R.time), 'per second (encourages speed)'],
+    ['grass', '−' + n(R.grass), 'per second off the road'],
+    ['crash', '−' + n(R.crash), 'one-off, wall contact ends the episode'],
+    ['stall', '−' + n(R.stall), 'one-off, no progress for ' + R.stallTime + ' s ends the episode'],
+    ['lapBonus', '+' + n(R.lapBonus), 'one-off, lap completed'],
+    ['lapTime', '+' + n(R.lapTime), 'per second faster than ' + R.refTime + ' s'],
+    ['maxTime', R.maxTime + ' s', 'episode time limit']
+  ]);
+  const full = (t) => Math.round(E.LAP_M * n(R.progress) - n(R.time) * t + n(R.lapBonus) + n(R.lapTime) * Math.max(0, R.refTime - t));
+  const part = (f, t) => Math.round(E.LAP_M * f * n(R.progress) - n(R.time) * t - n(R.crash));
+  rows('examples', [
+    ['Lap in 150 s', full(150)],
+    ['Lap in 180 s', full(180)],
+    ['Crash at half lap (60 s)', part(0.5, 60)],
+    ['Crash at 90% of lap (120 s)', part(0.9, 120)]
+  ]);
+
+  // Evolution settings
+  const cd = {
+    population: 'networks per generation', elites: 'best copied unchanged', fresh: 'new random networks per generation',
+    parentFraction: 'top share eligible as parents', crossover: 'chance a child mixes two parents',
+    mutationRate: 'share of weights perturbed', sigma0: 'initial mutation size', sigmaDecay: 'per-generation decay', sigmaMin: 'mutation size floor'
+  };
+  rows('cfg', Object.keys(B.CONFIG).map((k) => [k + (cd[k] ? ' <span class="muted">· ' + cd[k] + '</span>' : ''), B.CONFIG[k]]));
+</script>
+</body>
+</html>

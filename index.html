@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panorama Lab · Prototype 00</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<aside class="panel">
+  <header>
+    <h1>Panorama Lab</h1>
+    <p class="meta">Autonomous driving research · 001</p>
+    <p class="meta">Prototype 00</p>
+  </header>
+
+  <section>
+    <h2><span>01</span> / Control panel</h2>
+    <h3>Learning system</h3>
+    <dl class="kv">
+      <dt>Model</dt><dd>Neural network</dd>
+      <dt>Training method</dt><dd>Reinforcement learning</dd>
+    </dl>
+
+    <p class="label">Episode</p>
+    <strong class="episode" id="episode">0000</strong>
+    <p class="muted" id="status">Awaiting simulation</p>
+
+    <p class="label">Control outputs</p>
+    <div class="out"><div class="row"><span>Throttle</span><b id="v-thr">0.00</b></div><div class="meter"><i id="b-thr"></i></div></div>
+    <div class="out"><div class="row"><span>Brake</span><b id="v-brk">0.00</b></div><div class="meter"><i id="b-brk"></i></div></div>
+    <div class="out"><div class="row"><span>Steering</span><b id="v-str">0.00</b></div><div class="meter centre"><i id="b-str"></i></div></div>
+  </section>
+
+  <section>
+    <h2><span>02</span> / Telemetry</h2>
+    <dl class="kv">
+      <dt>Speed</dt><dd id="speed">0 km/h</dd>
+      <dt>Best lap</dt><dd id="best">—</dd>
+    </dl>
+    <p class="muted note">W / ↑ throttle · S / ↓ brake · A D / ← → steer · R reset · C follow camera</p>
+  </section>
+
+  <section>
+    <h2><span>03</span> / Training</h2>
+    <h3>Neuroevolution</h3>
+    <div class="btns">
+      <button id="tr-train" type="button">Train</button>
+      <button id="tr-watch" type="button">Watch best</button>
+      <button id="tr-drive" type="button">Drive</button>
+      <button id="tr-reset" type="button">Reset</button>
+    </div>
+    <p class="label">Speed
+      <select id="tr-speed">
+        <option value="1">1×</option><option value="4" selected>4×</option>
+        <option value="16">16×</option><option value="64">64×</option><option value="max">Max</option>
+      </select>
+    </p>
+    <dl class="kv">
+      <dt>Generation</dt><dd id="t-gen">0</dd>
+      <dt>Alive</dt><dd id="t-alive">—</dd>
+      <dt>Best reward</dt><dd id="t-best">—</dd>
+      <dt>Distance (gen)</dt><dd id="t-dist">—</dd>
+      <dt>Laps (gen)</dt><dd id="t-laps">0</dd>
+      <dt>Best lap</dt><dd id="t-lap">—</dd>
+    </dl>
+    <svg id="chart" class="fig" viewBox="0 0 330 100" role="img" aria-label="Reward by generation">
+      <line class="ax" x1="30" y1="8" x2="30" y2="84"/><line class="ax" x1="30" y1="84" x2="318" y2="84"/>
+      <path id="c-mean" d=""/><path id="c-best" d=""/>
+      <text x="34" y="16">reward</text><text x="318" y="96" text-anchor="end">generation</text>
+    </svg>
+    <p class="muted note">Solid: best · dashed: mean. <a href="model.html">Model and reward function →</a></p>
+  </section>
+</aside>
+
+<main class="view">
+  <div class="bar-t">
+    <span>/ Circuit view</span>
+    <b id="track-name"></b>
+    <span class="sp">Scroll to zoom · drag to pan</span>
+    <button id="reset" type="button">Reset</button>
+  </div>
+  <svg id="circuit" aria-label="Mount Panorama circuit"></svg>
+  <div class="bar-b">
+    <span>Lap <b id="lap">—</b></span>
+    <span>Reward <b id="reward">—</b></span>
+    <span class="sp"><span id="p-len"></span> · <span id="p-dir"></span> · <span id="p-scale"></span> · <span id="p-pts"></span> · Flat 2D</span>
+  </div>
+</main>
+
+<script src="track.js"></script>
+<script src="app.js"></script>
+<script src="env.js"></script>
+<script src="brain.js"></script>
+<script src="sim.js"></script>
+<script src="trainer.js"></script>
+</body>
+</html>
