@@ -1,18 +1,18 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Panorama Lab · Prototype 00</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ML Track Trainer · Prototype 01</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <aside class="panel">
   <header>
-    <h1>Panorama Lab</h1>
+    <h1>ML Track Trainer</h1>
     <p class="meta">Autonomous driving research · 001</p>
-    <p class="meta">Prototype 00</p>
+    <p class="meta">Prototype 01</p>
   </header>
 
   <section>
@@ -20,17 +20,26 @@
     <h3>Learning system</h3>
     <dl class="kv">
       <dt>Model</dt><dd>Neural network</dd>
-      <dt>Training method</dt><dd>Reinforcement learning</dd>
+      <dt>Training method</dt><dd>Neuroevolution</dd>
     </dl>
 
-    <p class="label">Episode</p>
+    <p class="label">Generation</p>
     <strong class="episode" id="episode">0000</strong>
     <p class="muted" id="status">Awaiting simulation</p>
 
     <p class="label">Control outputs</p>
-    <div class="out"><div class="row"><span>Throttle</span><b id="v-thr">0.00</b></div><div class="meter"><i id="b-thr"></i></div></div>
-    <div class="out"><div class="row"><span>Brake</span><b id="v-brk">0.00</b></div><div class="meter"><i id="b-brk"></i></div></div>
-    <div class="out"><div class="row"><span>Steering</span><b id="v-str">0.00</b></div><div class="meter centre"><i id="b-str"></i></div></div>
+    <div class="out">
+      <div class="row"><span>Throttle</span><b id="v-thr">0.00</b></div>
+      <div class="meter"><i id="b-thr"></i></div>
+    </div>
+    <div class="out">
+      <div class="row"><span>Brake</span><b id="v-brk">0.00</b></div>
+      <div class="meter"><i id="b-brk"></i></div>
+    </div>
+    <div class="out">
+      <div class="row"><span>Steering</span><b id="v-str">0.00</b></div>
+      <div class="meter centre"><i id="b-str"></i></div>
+    </div>
   </section>
 
   <section>
@@ -45,32 +54,46 @@
   <section>
     <h2><span>03</span> / Training</h2>
     <h3>Neuroevolution</h3>
+
     <div class="btns">
       <button id="tr-train" type="button">Train</button>
       <button id="tr-watch" type="button">Watch best</button>
       <button id="tr-drive" type="button">Drive</button>
       <button id="tr-reset" type="button">Reset</button>
+      <button id="tr-export" type="button">Export CSV</button>
     </div>
+
     <p class="label">Speed
       <select id="tr-speed">
-        <option value="1">1×</option><option value="4" selected>4×</option>
-        <option value="16">16×</option><option value="64">64×</option><option value="max">Max</option>
+        <option value="1">1×</option>
+        <option value="4" selected>4×</option>
+        <option value="16">16×</option>
+        <option value="64">64×</option>
+        <option value="max">Max</option>
       </select>
     </p>
+
     <dl class="kv">
       <dt>Generation</dt><dd id="t-gen">0</dd>
       <dt>Alive</dt><dd id="t-alive">—</dd>
       <dt>Best reward</dt><dd id="t-best">—</dd>
-      <dt>Distance (gen)</dt><dd id="t-dist">—</dd>
+      <dt>Farthest progress</dt><dd id="t-dist">—</dd>
       <dt>Laps (gen)</dt><dd id="t-laps">0</dd>
-      <dt>Best lap</dt><dd id="t-lap">—</dd>
+      <dt>Completion (last gen)</dt><dd id="t-comp">—</dd>
+      <dt>Fastest lap</dt><dd id="t-lap">—</dd>
     </dl>
-    <svg id="chart" class="fig" viewBox="0 0 330 100" role="img" aria-label="Reward by generation">
-      <line class="ax" x1="30" y1="8" x2="30" y2="84"/><line class="ax" x1="30" y1="84" x2="318" y2="84"/>
-      <path id="c-mean" d=""/><path id="c-best" d=""/>
-      <text x="34" y="16">reward</text><text x="318" y="96" text-anchor="end">generation</text>
+
+    <svg id="chart" class="fig" viewBox="0 0 330 100" role="img" aria-label="Reward and completion rate by generation">
+      <line class="ax" x1="30" y1="8" x2="30" y2="84"/>
+      <line class="ax" x1="30" y1="84" x2="318" y2="84"/>
+      <path id="c-mean" d=""/>
+      <path id="c-best" d=""/>
+      <path id="c-comp" d="" fill="none" stroke="currentColor" stroke-dasharray="1 3"/>
+      <text x="34" y="16">reward · completion</text>
+      <text x="318" y="96" text-anchor="end">generation</text>
     </svg>
-    <p class="muted note">Solid: best · dashed: mean. <a href="model.html">Model and reward function →</a></p>
+
+    <p class="muted note">Solid: best · dashed: mean · dotted: completion rate (0–100%). <a href="model.html">Model and reward function →</a></p>
   </section>
 </aside>
 
@@ -80,8 +103,47 @@
     <b id="track-name"></b>
     <span class="sp">Scroll to zoom · drag to pan</span>
     <button id="reset" type="button">Reset</button>
+    <button id="network-toggle" type="button"
+          aria-expanded="false" aria-controls="network-panel">
+    Network +
+  </button>
   </div>
+
+
+  <aside id="network-panel" class="network-panel"
+       aria-label="Live neural network" hidden>
+  <header class="network-header">
+    <div>
+      <h2>Neural network</h2>
+      <p id="network-status" class="muted">Waiting for autonomous driver</p>
+    </div>
+    <button id="network-close" type="button" aria-label="Close network panel">
+      ×
+    </button>
+  </header>
+
+  <svg id="network-live" viewBox="0 0 560 430"
+       role="img" aria-label="Live neural network activations and weights"></svg>
+
+  <div class="network-readouts">
+    <div>
+      <span class="muted">Pedal output</span>
+      <strong id="network-pedal">—</strong>
+    </div>
+    <div>
+      <span class="muted">Steering output</span>
+      <strong id="network-steer">—</strong>
+    </div>
+  </div>
+
+  <p class="muted network-legend">
+    Node fill: activation · Line: weight sign and magnitude
+  </p>
+</aside>
+  
+
   <svg id="circuit" aria-label="Mount Panorama circuit"></svg>
+
   <div class="bar-b">
     <span>Lap <b id="lap">—</b></span>
     <span>Reward <b id="reward">—</b></span>
@@ -95,5 +157,6 @@
 <script src="brain.js"></script>
 <script src="sim.js"></script>
 <script src="trainer.js"></script>
+<script src="network-view.js"></script>
 </body>
 </html>

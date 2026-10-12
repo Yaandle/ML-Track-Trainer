@@ -70,7 +70,8 @@
       <li>Simulate every network in lockstep until all have ended.</li>
       <li>Rank by total reward.</li>
       <li>Keep the elites unchanged, add a few fresh random networks, and fill the rest with mutated (optionally crossed-over) children of the top share.</li>
-      <li>Shrink the mutation size each generation. Save the all-time best to local storage.</li>
+      <li>Shrink the mutation size each generation. Save the highest-reward model and the fastest-lap model to local storage.</li>
+      <li>Randomness is seeded. Each run's seed and full configuration are logged and exported with the episode and generation data.</li>
     </ul>
     <table><thead><tr><th>Setting</th><th>Value</th></tr></thead><tbody id="cfg"></tbody></table>
   </section>
@@ -81,6 +82,7 @@
       <li>Every episode starts from the same standing start, so early generations can overfit the opening sections. Random start positions are the next lever.</li>
       <li>Walls end the episode, so the agent never learns recovery.</li>
       <li>Flat 2D: no elevation, camber or tyre-temperature model.</li>
+      <li>The elites replay identically each generation, so they count towards the completion rate.</li>
     </ul>
   </section>
 
@@ -118,33 +120,79 @@
 <script src="brain.js"></script>
 <script>
   const E = Env, B = Brain, $ = (id) => document.getElementById(id), n = Math.abs;
-  const rows = (id, data) => { $(id).innerHTML = data.map((r) => '<tr>' + r.map((c) => '<td>' + c + '</td>').join('') + '</tr>').join(''); };
+  const rows = (id, data) => {
+    $(id).innerHTML = data.map((r) =>
+      '<tr>' + r.map((c) => '<td>' + c + '</td>').join('') + '</tr>'
+    ).join('');
+  };
 
   // Observations
-  const desc = ['Speed ÷ 90 m/s', 'Signed distance from centreline ÷ wall distance (+ = right)', 'Car heading minus track direction ÷ 90°']
-    .concat(E.LOOK.map((d) => 'Track direction ' + d + ' m ahead, relative to car heading ÷ 90°'), ['Current steering position']);
+  const desc = [
+    'Speed ÷ 90 m/s',
+    'Signed distance from centreline ÷ wall distance (+ = right)',
+    'Car heading minus track direction ÷ 90°'
+  ].concat(
+    E.LOOK.map((d) => 'Track direction ' + d + ' m ahead, relative to car heading ÷ 90°'),
+    ['Current steering position']
+  );
+
   rows('obs', E.OBS_NAMES.map((name, i) => [name, desc[i] || '']));
 
   // Network
   (function () {
     const g = $('net'), NS = 'http://www.w3.org/2000/svg', L = B.LAYERS, last = L.length - 1;
-    const X = L.map((_, i) => 40 + (i * 480) / last), gap = Math.min(14, 140 / Math.max(...L));
+    const X = L.map((_, i) => 40 + (i * 480) / last);
+    const gap = Math.min(14, 140 / Math.max(...L));
     const Y = (c, i) => 80 + (i - (c - 1) / 2) * gap;
-    const mk = (t, a, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); p.appendChild(e); return e; };
-    for (let l = 0; l < last; l++)
-      for (let i = 0; i < L[l]; i++) for (let j = 0; j < L[l + 1]; j++)
-        mk('line', { x1: X[l], y1: Y(L[l], i), x2: X[l + 1], y2: Y(L[l + 1], j) }, g);
-    L.forEach((c, l) => { for (let i = 0; i < c; i++) mk('circle', { cx: X[l], cy: Y(c, i), r: 3.5 }, g); });
+
+    const mk = (t, a, p) => {
+      const e = document.createElementNS(NS, t);
+      for (const k in a) e.setAttribute(k, a[k]);
+      p.appendChild(e);
+      return e;
+    };
+
+    for (let l = 0; l < last; l++) {
+      for (let i = 0; i < L[l]; i++) {
+        for (let j = 0; j < L[l + 1]; j++) {
+          mk('line', {
+            x1: X[l],
+            y1: Y(L[l], i),
+            x2: X[l + 1],
+            y2: Y(L[l + 1], j)
+          }, g);
+        }
+      }
+    }
+
     L.forEach((c, l) => {
-      mk('text', { x: X[l], y: 176, 'text-anchor': 'middle' }, g).textContent =
+      for (let i = 0; i < c; i++) {
+        mk('circle', { cx: X[l], cy: Y(c, i), r: 3.5 }, g);
+      }
+    });
+
+    L.forEach((c, l) => {
+      mk('text', {
+        x: X[l],
+        y: 176,
+        'text-anchor': 'middle'
+      }, g).textContent =
         (l === 0 ? 'input' : l === last ? 'output' : 'hidden') + ' (' + c + ')';
     });
-    ['pedal', 'steer'].forEach((t, i) => { mk('text', { x: X[last] + 10, y: Y(L[last], i) + 3 }, g).textContent = t; });
+
+    ['pedal', 'steer'].forEach((t, i) => {
+      mk('text', {
+        x: X[last] + 10,
+        y: Y(L[last], i) + 3
+      }, g).textContent = t;
+    });
+
     $('net-text').textContent = L.join(' → ') + ' · tanh activations · ' + B.SIZE + ' weights.';
   })();
 
   // Reward
   const R = E.REWARD;
+
   rows('reward', [
     ['progress', '+' + n(R.progress), 'per metre of forward progress along the centreline'],
     ['time', '−' + n(R.time), 'per second (encourages speed)'],
@@ -155,8 +203,20 @@
     ['lapTime', '+' + n(R.lapTime), 'per second faster than ' + R.refTime + ' s'],
     ['maxTime', R.maxTime + ' s', 'episode time limit']
   ]);
-  const full = (t) => Math.round(E.LAP_M * n(R.progress) - n(R.time) * t + n(R.lapBonus) + n(R.lapTime) * Math.max(0, R.refTime - t));
-  const part = (f, t) => Math.round(E.LAP_M * f * n(R.progress) - n(R.time) * t - n(R.crash));
+
+  const full = (t) => Math.round(
+    E.LAP_M * n(R.progress) -
+    n(R.time) * t +
+    n(R.lapBonus) +
+    n(R.lapTime) * Math.max(0, R.refTime - t)
+  );
+
+  const part = (f, t) => Math.round(
+    E.LAP_M * f * n(R.progress) -
+    n(R.time) * t -
+    n(R.crash)
+  );
+
   rows('examples', [
     ['Lap in 150 s', full(150)],
     ['Lap in 180 s', full(180)],
@@ -166,11 +226,21 @@
 
   // Evolution settings
   const cd = {
-    population: 'networks per generation', elites: 'best copied unchanged', fresh: 'new random networks per generation',
-    parentFraction: 'top share eligible as parents', crossover: 'chance a child mixes two parents',
-    mutationRate: 'share of weights perturbed', sigma0: 'initial mutation size', sigmaDecay: 'per-generation decay', sigmaMin: 'mutation size floor'
+    population: 'networks per generation',
+    elites: 'best copied unchanged',
+    fresh: 'new random networks per generation',
+    parentFraction: 'top share eligible as parents',
+    crossover: 'chance a child mixes two parents',
+    mutationRate: 'share of weights perturbed',
+    sigma0: 'initial mutation size',
+    sigmaDecay: 'per-generation decay',
+    sigmaMin: 'mutation size floor'
   };
-  rows('cfg', Object.keys(B.CONFIG).map((k) => [k + (cd[k] ? ' <span class="muted">· ' + cd[k] + '</span>' : ''), B.CONFIG[k]]));
+
+  rows('cfg', Object.keys(B.CONFIG).map((k) => [
+    k + (cd[k] ? ' <span class="muted">· ' + cd[k] + '</span>' : ''),
+    B.CONFIG[k]
+  ]));
 </script>
 </body>
 </html>

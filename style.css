@@ -114,3 +114,162 @@ body.doc { display: block; height: auto; overflow: auto; }
 .doc table { margin-bottom: 10px; }
 .doc td:first-child { white-space: nowrap; }
 .doc .fig { max-width: 560px; }
+
+.network-panel {
+  position: absolute;
+  z-index: 20;
+  top: 56px;
+  right: 16px;
+  width: min(560px, calc(100% - 32px));
+  max-height: calc(100% - 100px);
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 18px;
+  background: #fefefe;
+  color: #2a2a2a;
+  border: 1px solid #2a2a2a;
+}
+
+.network-panel[hidden] {
+  display: none;
+}
+
+/* Header */
+.network-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.network-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.network-header p {
+  margin: 6px 0 12px;
+}
+
+#network-close {
+  flex-shrink: 0;
+  font-size: 1.4rem;
+  line-height: 1;
+  padding: 4px 8px;
+}
+
+/* Neural network diagram */
+#network-live {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* Input observations beneath the diagram */
+.network-inputs {
+  border-top: 1px solid #d8d8d8;
+  padding-top: 12px;
+  margin-top: 8px;
+}
+
+.network-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: #888888;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+#network-input-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 18px;
+}
+
+.network-input-row {
+  display: grid;
+  grid-template-columns: 24px minmax(20px, 1fr) 48px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.network-input-name {
+  color: #888888;
+}
+
+.network-input-meter {
+  height: 4px;
+  min-width: 0;
+  overflow: hidden;
+  background: #e8e8e8;
+}
+
+.network-input-meter i {
+  display: block;
+  height: 100%;
+  background: #d64545;
+  transition: width 80ms linear;
+}
+
+.network-input-meter i.negative {
+  background: #2a2a2a;
+}
+
+.network-input-value {
+  color: #2a2a2a;
+  text-align: right;
+}
+
+/* Output readouts */
+.network-readouts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  border-top: 1px solid #2a2a2a;
+  padding-top: 12px;
+  margin-top: 12px;
+}
+
+.network-readouts div {
+  display: grid;
+  gap: 5px;
+}
+
+.network-readouts strong {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.2rem;
+}
+
+/* Connection and activation legend */
+.network-legend {
+  font-size: 0.75rem;
+  margin-bottom: 0;
+}
+
+/* Responsive layout */
+@media (max-width: 650px) {
+  .network-panel {
+    top: 48px;
+    right: 8px;
+    width: calc(100% - 16px);
+    max-height: calc(100% - 64px);
+    padding: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  #network-input-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .network-input-row {
+    grid-template-columns: 24px minmax(20px, 1fr) 48px;
+  }
+}
