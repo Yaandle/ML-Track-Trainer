@@ -2,35 +2,48 @@
 (function (global) {
   'use strict';
 
+  // Track imported from an ACC session (track-import.js), if any. Overrides the built-in track.
+  const IMPORTED = (() => {
+    try {
+      const t = JSON.parse(localStorage.getItem('mltt.track'));
+      return t && Array.isArray(t.control) && t.control.length >= 10 ? t : null;
+    } catch (e) {
+      return null;
+    }
+  })();
+
   // Traced centreline [x, y], driving direction, closed loop.
   // Index 0 = start/finish.
-  const CONTROL = [
-    [322,102],[209,127],[145,206],[110,271],[110,360],
-    [110,429],[195,490],[404,523],[542,523],[651,488],
-    [689,421],[707,298],[707,211],[687,133],[639,73],
-    [554,42],[466,42],[401,42],[352,76],
+  const BUILTIN_CONTROL = [
+    [78,121],[217,87],[279,137],[490,137],[572,194],
+    [599,282],[599,357],[535,417],[499,433],[362,416],
+    [304,345],[290,259],[227,259],[154,300],[133,347],
+    [99,424],[29,389],[29,333],[29,267],[29,173],
   ];
+
+  const CONTROL = IMPORTED ? IMPORTED.control : BUILTIN_CONTROL;
 
   // ~90-degree corners to fillet: CONTROL index -> radius (px).
   // Radius is clamped to half the shorter adjacent segment.
-  const ROUND_CORNERS = new Map([
+  // Imported tracks are already smooth, so they get none.
+  const ROUND_CORNERS = IMPORTED ? new Map() : new Map([
     [1, 8],                   // [155,471] bottom-right
     [CONTROL.length - 1, 8],  // [30,471]  bottom-left
   ]);
 
   // Optional labels by CONTROL index.
-  const CORNER_INDEX = [
+  const CORNER_INDEX = IMPORTED ? (IMPORTED.corners || []) : [
     // { name: 'Hell Corner', i: 8 },
   ];
-  
-  const NAME = 'My Track 01';   // shown in the UI
-  const LAP_METERS = 6213; // real lap length
+
+  const NAME = IMPORTED ? IMPORTED.name : 'My Track 01';   // shown in the UI
+  const LAP_METERS = IMPORTED ? IMPORTED.lapMeters : 6213; // real lap length
 
   // Smaller values create more samples along the spline.
   const STEP_PX = 2.5;
 
   // Road width as a fraction of lap length.
-  const WIDTH_FACTOR = 0.0053;
+  const WIDTH_FACTOR = (IMPORTED && IMPORTED.widthFactor) || 0.0053;
 
   // Replace each rounded corner with entry, arc-midpoint and exit points.
   // ctrlToPath[i] = index in PATH where CONTROL[i] begins.
@@ -388,7 +401,7 @@
     name: NAME,
     lapMeters: LAP_METERS,
     control: CONTROL,
-    control: CONTROL,
+    imported: !!IMPORTED,
     points: pts,
     left,
     right,

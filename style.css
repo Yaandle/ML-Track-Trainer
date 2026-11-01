@@ -71,6 +71,27 @@ button {
   background: none; border: 1px solid var(--ink); padding: 2px 10px; cursor: pointer;
 }
 button:hover { background: var(--ink); color: var(--bg); }
+button:disabled { opacity: .35; pointer-events: none; }
+.file-btn {
+  font: inherit; letter-spacing: .14em; text-transform: uppercase; color: var(--ink);
+  border: 1px solid var(--ink); padding: 2px 10px; cursor: pointer;
+}
+.file-btn:hover { background: var(--ink); color: var(--bg); }
+
+/* track maker */
+.maker { position: fixed; inset: 0; z-index: 50; background: rgba(17, 17, 17, .35); display: grid; place-items: center; }
+.maker[hidden] { display: none; }
+.maker-box { width: min(1400px, 96vw); height: min(900px, 92vh); background: var(--bg); border: 1px solid var(--ink);
+  display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.maker-body { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 0; }
+.maker-side { padding: 14px 18px; border-right: 1px solid var(--ink); overflow: auto; }
+.maker-side input[type=range] { width: 100%; }
+.maker-canvas { min-width: 0; min-height: 0; }
+.maker-canvas canvas { display: block; cursor: crosshair; }
+.mk-field { display: block; margin-bottom: 8px; color: var(--mute); }
+.mk-field input[type=text], .mk-field input[type=number] {
+  display: block; width: 100%; font: inherit; color: var(--ink); background: none; border: 1px solid var(--ink); padding: 2px 6px; margin-top: 2px;
+}
 
 /* circuit */
 #circuit { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
