@@ -123,6 +123,20 @@ The graphs describe the data recorded in the CSV. They do not automatically reco
 
 ## Use your own track
 
+### From an ACC session (no tracing)
+
+1. Record a session with [ac_telemetry](../ac_telemetry) `reader.py` (at least two flying laps).
+2. In the simulator, open **04 / Track → Import track** and pick the session CSV, or a `.track.json` exported from the ac_telemetry dashboard.
+3. The page reloads on the new circuit. It's built from the median line of your flying laps, with the real lap length, start/finish and driving direction.
+
+The imported track is stored in browser `localStorage`. **Built-in** switches back to the track in `track.js`. Models are saved per track name, so each circuit trains separately. `acc-csv.js` is shared with ac_telemetry; keep both copies identical.
+
+### By drawing it in the simulator
+
+**04 / Track → Make track** opens the track maker: load an image (optional), click the centreline in driving direction from the start/finish line, drag points to adjust, right-click to delete. Set the name, lap length and road width, then **Use track**. **Edit current** opens the track that is loaded now. **Save .json** downloads it for later import.
+
+### By tracing an image (older tool)
+
 1. Open `trace.html` and load an image of the circuit.
 2. Click the track centreline in driving direction.
 3. Copy the generated points.
@@ -159,6 +173,9 @@ Models are saved per track name. Changing `NAME` creates a separate model entry;
 | `network-view.js` | Neural network visualisation |
 | `model.html` | Model documentation and training details |
 | `trace.html` | Track centreline tracing tool |
+| `track-import.js` | Import a circuit from an ACC session CSV or `.track.json` |
+| `track-maker.js` | In-app track drawing tool (Make track / Edit current) |
+| `acc-csv.js` | ACC CSV parser shared with ac_telemetry |
 | `plot_training_csv.py` | CSV analysis and PNG graph generation |
 | `training.csv` | Recorded driver-level training data |
 | `graphs/` | Generated graph images |

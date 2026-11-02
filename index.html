@@ -95,7 +95,60 @@
 
     <p class="muted note">Solid: best · dashed: mean · dotted: completion rate (0–100%). <a href="model.html">Model and reward function →</a></p>
   </section>
+
+  <section>
+    <h2><span>04</span> / Track</h2>
+    <dl class="kv">
+      <dt>Circuit</dt><dd id="trk-name">—</dd>
+      <dt>Source</dt><dd id="trk-src">—</dd>
+    </dl>
+    <div class="btns" style="margin-top:12px">
+      <button id="trk-make" type="button">Make track</button>
+      <button id="trk-edit" type="button">Edit current</button>
+      <label class="file-btn">Import track<input id="trk-file" type="file" accept=".csv,.json" hidden></label>
+      <button id="trk-builtin" type="button">Built-in</button>
+    </div>
+    <p class="muted note" id="trk-msg">Make track: draw a circuit over an image. Import: an ACC session CSV (from ac_telemetry reader.py) or a .track.json. Models are saved per track name.</p>
+  </section>
 </aside>
+
+<div id="maker" class="maker" hidden>
+  <div class="maker-box">
+    <div class="bar-t">
+      <span>/ Track maker</span>
+      <span>Points <b id="mk-count">0</b></span>
+      <span>Cursor <b id="mk-cursor">—</b></span>
+      <span class="sp">Click add · drag move · right-click delete · Ctrl+Z undo</span>
+      <button id="mk-close" type="button">Close</button>
+    </div>
+    <div class="maker-body">
+      <div class="maker-side">
+        <p class="label">1 · Background (optional)</p>
+        <label class="file-btn">Load image<input id="mk-img" type="file" accept="image/*" hidden></label>
+        <p class="label">Image opacity</p>
+        <input id="mk-opacity" type="range" min="0.1" max="1" step="0.05" value="0.6">
+        <p class="label">2 · Draw</p>
+        <p class="muted">Click the centreline in driving direction, starting at the start/finish line. Clicking near the line inserts a point there.</p>
+        <div class="btns" style="margin-top:8px">
+          <button id="mk-undo" type="button">Undo</button>
+          <button id="mk-clear" type="button">Clear</button>
+          <button id="mk-reverse" type="button">Reverse</button>
+        </div>
+        <p class="label">3 · Details</p>
+        <label class="mk-field">Name <input id="mk-name" type="text" value="My Track"></label>
+        <label class="mk-field">Lap length (m) <input id="mk-len" type="number" min="100" value="5000"></label>
+        <label class="mk-field">Road width <input id="mk-width" type="range" min="0.002" max="0.012" step="0.0005" value="0.0053"></label>
+        <p class="label">4 · Save</p>
+        <div class="btns">
+          <button id="mk-use" type="button" disabled>Use track</button>
+          <button id="mk-save" type="button">Save .json</button>
+        </div>
+        <p class="muted note" id="mk-msg"></p>
+      </div>
+      <div class="maker-canvas"><canvas id="mk-canvas"></canvas></div>
+    </div>
+  </div>
+</div>
 
 <main class="view">
   <div class="bar-t">
@@ -151,7 +204,10 @@
   </div>
 </main>
 
+<script src="acc-csv.js"></script>
 <script src="track.js"></script>
+<script src="track-import.js"></script>
+<script src="track-maker.js"></script>
 <script src="app.js"></script>
 <script src="env.js"></script>
 <script src="brain.js"></script>
