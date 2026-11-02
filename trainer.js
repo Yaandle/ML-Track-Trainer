@@ -319,6 +319,25 @@
     download('runs-' + ts + '.json', JSON.stringify(log.runs, null, 1), 'application/json');
   }
 
+  // Best genome as {w, fit, gen}: the format ac_telemetry's pilot.py --weights and
+  // pilot_evolve.py --seed-from read.
+  function exportModel() {
+    if (!best) {
+      alert('No trained model yet. Train for a few generations first.');
+      return;
+    }
+    const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    const o = {
+      w: Array.from(best.w),
+      fit: best.fit,
+      gen: best.gen,
+      layers: B.LAYERS,
+      track: T.name,
+      lap_s: fastest ? fastest.time : null
+    };
+    download('model-' + T.name + '-gen' + best.gen + '-' + ts + '.json', JSON.stringify(o), 'application/json');
+  }
+
   /* ---------- watch best ---------- */
   function startWatch() {
     watch = {
@@ -613,6 +632,9 @@
 
   if ($('tr-export')) {
     $('tr-export').onclick = exportData;
+  }
+  if ($('tr-export-model')) {
+    $('tr-export-model').onclick = exportModel;
   }
 
   /* ---------- loop ---------- */
