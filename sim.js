@@ -16,7 +16,9 @@
     const car = sim.car, K = (a, b) => keys.has(a) || keys.has(b);
     tgt.thr = K('KeyW', 'ArrowUp') ? 1 : 0;
     tgt.brk = K('KeyS', 'ArrowDown') ? 1 : 0;
-    tgt.str = (K('KeyD', 'ArrowRight') ? 1 : 0) - (K('KeyA', 'ArrowLeft') ? 1 : 0);
+    // Keys are on/off, so full key = 1.2x the steer that reaches grip at this speed (like ACC's
+    // speed-sensitive gamepad steering); the network gets raw ACC steer and can overdo it.
+    tgt.str = ((K('KeyD', 'ArrowRight') ? 1 : 0) - (K('KeyA', 'ArrowLeft') ? 1 : 0)) * Math.min(1, 1.2 * E.gripSteer(car.v));
     E.step(car, tgt, dt);
 
     // Lap timing: cross start/finish forward after passing halfway

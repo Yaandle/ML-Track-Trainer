@@ -41,7 +41,15 @@ Each network receives nine inputs:
 - Five look-ahead track angles
 - Current steering
 
-The network outputs a signed pedal value and steering command. Positive pedal output applies throttle; negative output applies braking.
+The network outputs a signed pedal value and steering command. Positive pedal output applies throttle; negative output applies braking. Steering is in ACC's units (1 = full lock), the same as `pilot.py` sends to ACC.
+
+Each episode is two laps: a standing-start lap, then a flying lap. Both are timed and each earns the lap bonus.
+
+### The car
+
+The car slides. It's a dynamic bicycle model with front and rear tyres that lose grip past their peak, load transfer under braking and acceleration, a friction circle (braking and drive use up cornering grip), ABS and traction control, and ACC's gamepad counter-steer. Ask for more steering than the tyres can give and the front runs wide; brake hard at the cornering limit and the rear steps out. The old model capped full steer at the grip limit, so genomes never learned either, and failed live in ACC exactly there.
+
+With an imported ACC session, the car is measured from your flying laps (`car-fit.js`): acceleration, braking, cornering grip and steering response per 5 m/s speed band, the same fit as ac_telemetry's `track_line.py`. Driving your speed trace × 0.9 through it gives a 2:18.0 flying lap at Bathurst; the classical pilot did 2:17.3 live in ACC at the same pace.
 
 Training uses neuroevolution to optimise cumulative reward. The reward encourages forward progress and lap completion while penalising time, grass and wall contact.
 
@@ -127,7 +135,7 @@ The graphs describe the data recorded in the CSV. They do not automatically reco
 
 1. Record a session with [ac_telemetry](../ac_telemetry) `reader.py` (at least two flying laps).
 2. In the simulator, open **04 / Track → Import track** and pick the session CSV, or a `.track.json` exported from the ac_telemetry dashboard.
-3. The page reloads on the new circuit. It's built from the median line of your flying laps, with the real lap length, start/finish and driving direction.
+3. The page reloads on the new circuit. It's built from the median line of your flying laps, with the real lap length, start/finish and driving direction, a 12 m wide road, and the car measured from the same laps.
 
 The imported track is stored in browser `localStorage`. **Built-in** switches back to the track in `track.js`. Models are saved per track name, so each circuit trains separately. `acc-csv.js` is shared with ac_telemetry; keep both copies identical.
 
@@ -176,13 +184,14 @@ Models are saved per track name. Changing `NAME` creates a separate model entry;
 | `track-import.js` | Import a circuit from an ACC session CSV or `.track.json` |
 | `track-maker.js` | In-app track drawing tool (Make track / Edit current) |
 | `acc-csv.js` | ACC CSV parser shared with ac_telemetry |
+| `car-fit.js` | Measures the car (acceleration, braking, grip, steering) from an ACC session |
 | `plot_training_csv.py` | CSV analysis and PNG graph generation |
 | `training.csv` | Recorded driver-level training data |
 | `graphs/` | Generated graph images |
 
 ## Limitations
 
-- The car and circuit use a simplified 2D physics model rather than a full racing simulator.
+- The car is a 2D model fitted to your telemetry, not ACC's own physics: no elevation (Bathurst climbs ~170 m), kerbs, suspension or tyre temperature. Its stability settings (brake balance, centre of gravity height, counter-steer) were tuned against ACC behaviour, not measured.
 - The network uses track-relative observations rather than camera images or raycasting.
 - Neuroevolution optimises the configured reward; it does not guarantee realistic racing behaviour or generalisation to other circuits.
 - Results depend on the track geometry, reward settings and random initialisation.

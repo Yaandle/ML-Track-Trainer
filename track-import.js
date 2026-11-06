@@ -12,6 +12,18 @@
   $('trk-src').textContent = !T.imported ? 'Built-in' : src === 'maker' ? 'Drawn (track maker)' : 'Imported (ACC)';
   $('trk-builtin').disabled = !T.imported;
 
+  // CSV -> track plus the car measured from the same flying laps (car-fit.js). The road is a
+  // realistic width: the default (0.0053 x lap length) made Bathurst 33 m wide, so genomes
+  // learned to drift and cut corners they can't in ACC.
+  const ROAD_M = 12;
+  function fromCsv(text, name) {
+    const track = AccCsv.trackFromCsv(text, name);
+    track.widthFactor = ROAD_M / track.lapMeters;
+    const data = AccCsv.parse(text, name);
+    track.car = window.CarFit ? CarFit.fit(data, AccCsv.laps(data)) : null;
+    return track;
+  }
+
   function useTrack(track) {
     if (!track || !Array.isArray(track.control) || track.control.length < 10 || !(track.lapMeters > 0)) {
       throw new Error('Not a valid track file.');
@@ -23,6 +35,7 @@
       corners: track.corners || [],
       widthFactor: track.widthFactor,
       source: track.source || 'import',
+      car: track.car || null,
     }));
     location.reload();
   }
@@ -34,7 +47,7 @@
     const r = new FileReader();
     r.onload = () => {
       try {
-        useTrack(/\.json$/i.test(file.name) ? JSON.parse(r.result) : AccCsv.trackFromCsv(r.result, file.name));
+        useTrack(/\.json$/i.test(file.name) ? JSON.parse(r.result) : fromCsv(r.result, file.name));
       } catch (err) {
         $('trk-msg').textContent = '⚠ ' + err.message;
       }
@@ -52,7 +65,7 @@
   if (url && location.protocol.startsWith('http') && !sessionStorage.getItem('mltt.track.loaded.' + url)) {
     sessionStorage.setItem('mltt.track.loaded.' + url, '1');
     fetch(url).then((res) => res.text()).then((text) => {
-      useTrack(/\.json$/i.test(url) ? JSON.parse(text) : AccCsv.trackFromCsv(text, url.split('/').pop()));
+      useTrack(/\.json$/i.test(url) ? JSON.parse(text) : fromCsv(text, url.split('/').pop()));
     }).catch((err) => { $('trk-msg').textContent = '⚠ ' + err.message; });
   }
 })();

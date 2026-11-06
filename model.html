@@ -199,8 +199,9 @@
     ['grass', '−' + n(R.grass), 'per second off the road'],
     ['crash', '−' + n(R.crash), 'one-off, wall contact ends the episode'],
     ['stall', '−' + n(R.stall), 'one-off, no progress for ' + R.stallTime + ' s ends the episode'],
-    ['lapBonus', '+' + n(R.lapBonus), 'one-off, lap completed'],
-    ['lapTime', '+' + n(R.lapTime), 'per second faster than ' + R.refTime + ' s'],
+    ['lapBonus', '+' + n(R.lapBonus), 'per lap completed'],
+    ['lapTime', '+' + n(R.lapTime), 'per second each lap beats ' + R.refTime + ' s'],
+    ['laps', String(R.laps), 'laps per episode: standing start, then flying'],
     ['maxTime', R.maxTime + ' s', 'episode time limit']
   ]);
 

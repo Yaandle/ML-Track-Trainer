@@ -67,7 +67,8 @@
   let mode = 'off', paused = false, speed = 4;       // modes: off (manual) | train | watch
   let pop = [], dots = [], gen = 0, alive = 0, laps = 0, frameN = 0;
   let best = null;                                   // highest reward: { w, fit, gen }
-  let fastest = null;                                // shortest lap: { w, time, gen }
+  let fastest = null;                                // shortest standing-start lap: { w, time, gen }
+  let fastestFly = null;                             // shortest flying (second) lap: { time, gen }
   const hist = { best: [], mean: [], comp: [] };
   const log = { runs: [], eps: [], gens: [] };       // kept across resets so several seeds export together
   let run = null;
@@ -184,10 +185,14 @@
       if (res.done) {
         a.alive = false;
         a.done = res.done;
+        laps += a.car.laps;
 
-        if (res.done === 'lap') {
-          laps++;
+        if (a.car.flyTime !== null && (!fastestFly || a.car.flyTime < fastestFly.time)) {
+          fastestFly = { time: a.car.flyTime, gen };
+        }
 
+        // A car can finish lap 1 and crash on its flying lap: its first lap still counts
+        if (a.car.lapTime !== null) {
           if (!fastest || a.car.lapTime < fastest.time) {
             fastest = {
               w: a.w,
@@ -214,7 +219,7 @@
   }
 
   function episodeRow(a, i) {
-    const c = a.car, lap = a.done === 'lap';
+    const c = a.car, lap = c.lapTime !== null;
 
     return {
       run_id: run.id,
@@ -225,6 +230,8 @@
       termination: a.done,
       lap_completed: lap ? 1 : 0,
       lap_time_s: lap ? rd(c.lapTime) : '',
+      laps_completed: c.laps,
+      flying_lap_s: c.flyTime !== null ? rd(c.flyTime) : '',
       progress_pct: rd((100 * c.s) / E.LAP_M),
       elapsed_s: rd(c.t),
       r_progress: rd(c.rc.prog),
@@ -243,6 +250,11 @@
     const lt = rows
       .filter((r) => r.lap_completed)
       .map((r) => r.lap_time_s)
+      .sort((x, y) => x - y);
+
+    const ft = rows
+      .filter((r) => r.flying_lap_s !== '')
+      .map((r) => r.flying_lap_s)
       .sort((x, y) => x - y);
 
     const mean = rw.reduce((s, v) => s + v, 0) / n;
@@ -266,6 +278,8 @@
       stalls: count('stall'),
       timeouts: count('time'),
       fastest_lap_s: lt.length ? lt[0] : '',
+      fastest_flying_lap_s: ft.length ? ft[0] : '',
+      laps_completed: rows.reduce((s, r) => s + r.laps_completed, 0),
       median_lap_s: lt.length ? rd(quantile(lt, 0.5)) : '',
       farthest_progress_pct: Math.max(...rows.map((r) => r.progress_pct))
     });
@@ -333,7 +347,10 @@
       gen: best.gen,
       layers: B.LAYERS,
       track: T.name,
-      lap_s: fastest ? fastest.time : null
+      wall_m: E.WALL * T.metersPerUnit,        // lateral input scale, so pilot.py feeds the same inputs
+      car: T.car ? 'fitted' : 'default',
+      lap_s: fastest ? fastest.time : null,
+      flying_lap_s: fastestFly ? fastestFly.time : null
     };
     download('model-' + T.name + '-gen' + best.gen + '-' + ts + '.json', JSON.stringify(o), 'application/json');
   }
@@ -406,7 +423,8 @@
         (watch.alive
           ? ''
           : ' · ' + RESULT[watch.done] +
-            (watch.done === 'lap' ? ' ' + E.fmt(c.lapTime) : ''))
+            (c.lapTime !== null ? ' ' + E.fmt(c.lapTime) : '') +
+            (c.flyTime !== null ? ' · flying ' + E.fmt(c.flyTime) : ''))
     });
 
     if (SIM.follow) {
@@ -501,6 +519,7 @@
       ? Math.round(100 * hist.comp[hist.comp.length - 1]) + '%'
       : '—';
     $('t-lap').textContent = lap;
+    $('t-fly').textContent = fastestFly ? E.fmt(fastestFly.time) : '—';
 
     UI.set({
       episode: gen,   // UI key remains 'episode'; displayed label is 'Generation'.
@@ -603,6 +622,7 @@
     // Reset = clean baseline with a new seed.
     best = null;
     fastest = null;
+    fastestFly = null;
     gen = 0;
     run = null;
 

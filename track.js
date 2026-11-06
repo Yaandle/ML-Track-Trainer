@@ -402,6 +402,7 @@
     lapMeters: LAP_METERS,
     control: CONTROL,
     imported: !!IMPORTED,
+    car: (IMPORTED && IMPORTED.car) || null,   // car fitted to the imported ACC session (car-fit.js)
     points: pts,
     left,
     right,
